@@ -1,0 +1,2097 @@
+/////////////////////////
+// BEGIN FILE jspatrol.js
+/////////////////////////
+/*
+
+
+Full source (including license, if applicable) included below.
+*/
+// Intentionally left blank
+/////////////////////////
+// END FILE jspatrol.js
+/////////////////////////
+/* ******** */
+////////////////////////////////////////////
+;(function (window, document, Date, undefined) { // BEGIN ASSET AmazonUIPageJS-3.0.342278.0
+  'use strict';
+  var AUI_BUILD_DATE = '3.20.7-2020-10-23';
+/////////////////////////
+// BEGIN FILE @js_debug_flag.js
+/////////////////////////
+/*
+
+
+Full source (including license, if applicable) included below.
+*/
+var AUI_JS_DEBUG = true;
+/////////////////////////
+// END FILE @js_debug_flag.js
+/////////////////////////
+/////////////////////////
+// BEGIN FILE p.js
+/////////////////////////
+/*
+
+
+Full source (including license, if applicable) included below.
+*/
+/* jshint maxparams: 5 */
+/**
+ * Asynchronous JavaScript dependency manager and asset loader
+ */
+
+'use strict';
+
+// Performance timestamp. The following 2 lines should be on the very top of p.js
+/* Importing _timing.js */
+/**
+ * Polyfill `Date.now` for older browsers
+ * @return {Number}
+ */
+var timestamp = Date.now = Date.now || function () {
+    return +new Date();
+};
+
+/**
+ * High-resolution, floating-point timestamp for modern browsers. Note that
+ * timestamp() and performanceTimestamp() values are not reliably comparable;
+ * computations should not mix the two.
+ *
+ * Any browser that supports window.performance should also support bind.
+ *
+ * With window.performance factored into a variable, Closure Compiler broke
+ * minified code so that performance.now() was never used. This is the
+ * smallest working structure I (stamps@) could find.
+ *
+ * @return {Number}
+ */
+var performanceTimestamp = (function(perf) {
+    return (perf && perf.now) ? perf.now.bind(perf) : timestamp;
+}(window.performance));
+/* Done importing _timing.js */
+
+
+var packageStartTime = performanceTimestamp();
+
+// Make sure P isn't being loaded twice (as AmazonUIPageJS or P)
+/* Importing _dupe_error.js */
+var AuiPJS = window.AmazonUIPageJS || window.P;
+
+if (AuiPJS && AuiPJS.when && AuiPJS.register) {
+    var ids = [];
+    // document.currentScript is not available on IE.
+    // We polyfill it on the phantomjs test case.
+    for (var el = document.currentScript; el; el = el.parentElement) {
+        if (el.id) {
+            ids.push(el.id);
+        }
+    }
+    return AuiPJS.log(
+        'A copy of P has already been loaded on this page.',
+        'FATAL',
+        ids.join(' ')
+    );
+}
+/* Done importing _dupe_error.js */
+
+
+// Pull in a set of utility functions
+/* Importing _util.js */
+/**
+ * Utilities shared by the 'P' wrapper and the core functionality
+ */
+
+var ue = window.ue;
+
+/**
+ * Adds a specific UE tag.
+ * @param {String} tag The tag to add
+ */
+function ueTag(tag) {
+    if (ue && ue.tag) {
+        ue.tag(join(':', 'aui', tag));
+    }
+}
+
+// Tag this request as an AUI request
+ueTag();
+ueTag('aui_build_date:' + AUI_BUILD_DATE);
+
+/**
+ * Reports a specific UE counter value.
+ * @see http://w?ClientSideMetrics/UserDocs/Instrumentation/ClientSideCounters
+ * @param {String} name The identifier for the counter
+ * @param {Integer} value (optional) Default is prior count +1 (increment)
+ */
+function ueCount(name, value) {
+    if (ue && ue.count) {
+        ue.count('aui:' + name, value === 0 ? 0 : (value || (ue.count('aui:' + name) || 0) + 1));
+    }
+}
+
+/**
+ * Determines whether a regex matches the user agent
+ * @param {RegExp} regex
+ * @return {Boolean} Returns boolean whether the user agent matches a regex.
+ *    Will also return false in case of a permissions error, which can
+ *    sometimes happen in IE when trying to read the user agent.
+ */
+function testUserAgent(regex) {
+    try {
+        return regex.test(navigator.userAgent);
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Returns whether a value is a function
+ * @param {Object} value The value to check
+ * @return {Boolean}
+ */
+function isFunc(value) {
+    return typeof value === 'function';
+}
+
+/**
+ * Adds an event to an element
+ * @param {EventTarget} elem The element whoses event will be watched
+ * @param {String} event The event to watch
+ * @param {Function()} callback The event handler
+ */
+function onEvent(elem, event, callback) {
+    if (elem.addEventListener) {
+        elem.addEventListener(event, callback, false);
+    } else if (elem.attachEvent) {
+        elem.attachEvent('on' + event, callback);
+    }
+}
+
+/**
+ * Removes an event from an element
+ * @param {EventTarget} elem The element whose event will be ignored
+ * @param {String} event The event to ignore
+ * @param {Function()} callback The original event handler
+ */
+function offEvent(elem, event, callback) {
+    if (elem.removeEventListener) {
+        elem.removeEventListener(event, callback, false);
+    } else if (elem.detachEvent) {
+        elem.detachEvent('on' + event, callback);
+    }
+}
+
+/**
+ * Joins three values using a delimiter, but only if they are defined
+ * @param {String} delimiter The value to insert between a and b
+ * @param {Object} a The first value to join
+ * @param {Object} b The second value to join
+ * @param {Object} c The third value to join
+ */
+function join(delimiter, a, b, c) {
+    var firstTwo = a && b ? a + delimiter + b : a || b;
+    return c ? join(delimiter, firstTwo, c) : firstTwo;
+}
+
+/**
+ * Defines an immutable value on obj
+ * @param {Object} obj The object to set value on
+ * @param {String} name The value to set
+ * @param {*} value The value to set
+ * @return {Object} value Returns the value for additional use
+ */
+function defineProp(obj, name, value) {
+    // Use defineProperty if available so that this property can not be written
+    // over by other teams. @see https://tt.amazon.com/0039758965
+    try {
+         Object.defineProperty(obj, name, { value: value, writable: false });
+    }
+    catch (err) {
+        // If Object.defineProperty doesn't exist or throws for some reason,
+        // fall back to plain assignment.
+        obj[name] = value;
+    }
+
+    return value;
+}
+/* Done importing _util.js */
+
+
+// The scheduler is an interface for defering function execution
+/* Importing _scheduler.js */
+/**
+ * Exposes the `schedule()` function, which efficiently defers execution of
+ * function invocations.
+ *
+ * The simplest implementation of `schedule` possible would look like this:
+ *
+ * ```
+ * function schedule(fn) {
+ *     setTimeout(fn, 0);
+ * }
+ * ```
+ *
+ * However, it turns out that `setTimeout` is slow. So we have built an
+ * system here that accomplishes the exact same thing, but calls `setTimeout`
+ * fewer times.
+ *
+ * We can accomplish this imply by accumulating a list of functions that need
+ * to be executed into a queue. We then call `setTimeout` once and iterate
+ * through the queue, calling each function.
+ *
+ * This also lets us time-slice the execution. If we spend too much time
+ * running functions, we can yield back to the browser and call `setTimeout`
+ * again to finish executing the remaining functions.
+ *
+ * We also need to make sure a thrown exception doesn't prevent other functions
+ * from being called. We do this by queuing up a backup call to setTimeout. If
+ * everything runs perfectly, we can clear the timer. If something goes
+ * awry, the timer never gets cleared and we will start processing again once
+ * it kicks in.
+ */
+
+/**
+ * A list of pending closures to execute
+ * @type {Function()[]}
+ */
+var scheduled = [];
+
+/**
+ * Whether the `run` method below is currently running or is scheduled
+ * @type {Boolean}
+ */
+var executing = false;
+
+/**
+ * Executes scheduled closures. This is a forward declaration to prevent
+ * jsHint from complaining about using runScheduler before it is declared.
+ * @type {Function()}
+ */
+var runScheduler;
+
+/**
+ * Starts the execution process for the scheduled methods
+ */
+function startScheduler() {
+    return setTimeout(runScheduler, 0);
+}
+
+/**
+ * Executes the scheduled closures
+ */
+runScheduler = function () {
+
+    // Ensure initialization continues even
+    // if there is an uncaught error below
+    var safetyTimeout = startScheduler();
+
+    var started = timestamp();
+
+    while (scheduled.length) {
+
+        scheduled.shift()();
+
+        // If we run past the time slice limit, yield to the browser
+        if (timestamp() - started > 50) {
+            // Return and let the 'safetyTimeout' catch this
+            return;
+        }
+    }
+
+    clearTimeout(safetyTimeout);
+    executing = false;
+};
+
+/**
+ * Queues up the given function to be executed
+ * @param {Function()} fn The function to schedule
+ */
+function schedule(fn) {
+    scheduled.push(fn);
+    if (!executing) {
+        startScheduler();
+        executing = true;
+    }
+}
+/* Done importing _scheduler.js */
+
+
+// Event notification and dependency listening functionality
+/* Importing _notify.js */
+/**
+ * A set of functions for managing simple named events and dependencies that
+ * are waiting on them.
+ *
+ * This defines two primary functions:
+ *
+ * ```
+ * notify("event1");
+ * onNotify(["event1", "event2"], function(){
+ *     // ...
+ * });
+ * ```
+ *
+ * It isn't any more complicated than that. You have a function that lets you
+ * wait for multiple events, and a function that lets you trigger an event.
+ *
+ * The interesting thing about these functions as compared with the rest of `P`
+ * is that they have no knowledge of values; They strictly represent the events
+ * themselves.
+ *
+ * The rest of PageJS actually uses a separate hash for managing the values.
+ * The keys in the hash correspond to the event names. So it winds up looking
+ * something like this:
+ *
+ * ```
+ * var components = {};
+ *
+ * onNotify(["jQuery", "A", "ready"], function () {
+ *     var $ = components["jQuery"];
+ *     var A = components["A"];
+ *     // ...
+ * });
+ *
+ * components["jQuery"] = window.$;
+ * notify("jQuery");
+ *
+ * components["A"] = {};
+ * notify("A");
+ *
+ * notify("ready");
+ * ```
+ *
+ * You can see above that by simply guaranteeing that the value is in the
+ * central hash before notifying about the event, the entire notify
+ * infrastructure doesn't need to worry about the values themselves.
+ */
+
+/**
+ * A set of events that have been triggered
+ * @type {Object.<String,Boolean>}
+ */
+var done = {};
+
+/**
+ * A map of events to a list of other events that are waiting on it
+ * @type {Object.<String, Array.<Function()>}
+ */
+var waiting = {};
+
+
+/**
+ * Marks that an event has occurred
+ * @param {String} event The named event to trigger
+ */
+function notify(event) {
+    done[event] = true;
+
+    // Iterating through all the events waiting on this one and let them
+    // know that it has completed
+    while ((waiting[event] || []).length) {
+        waiting[event].shift()();
+    }
+
+    delete waiting[event];
+}
+
+/**
+ * Executes a callback after a list of events have occurred
+ * @param {String[]} events A list of events to wait for
+ * @param {Function()} callback The method to schedule
+ */
+function onNotify(events, callback) {
+    var i = events.length;
+
+    // Track the number of pending dependencies. Every time one is fulfilled,
+    // `complete` will be called.
+    var count = i;
+    var complete = function () {
+        if (!(count--)) {
+            schedule(callback);
+        }
+    };
+
+    complete();
+
+    while (i--) {
+        if (done[events[i]]) {
+            // If the event has already happened then just call complete
+            complete();
+        } else {
+            // The next line seems hairy, but is rather simple. It creates a
+            // queue for waiting events if it doesn't exist, then pushes this
+            // event onto the queue
+            (waiting[events[i]] = waiting[events[i]] || []).push(complete);
+        }
+    }
+}
+
+/* Done importing _notify.js */
+
+
+// JavaScript and CSS URL loading
+/* Importing _load.js */
+/**
+ * Functionality for loading CSS and JS URLs onto the page
+ */
+
+/**
+ * The table of URLs that have already been loaded
+ * @type {Object.<String, Boolean>}
+ */
+var loadedUrls = {};
+
+/**
+ * A hash of components already loaded by a specific URL
+ * @type {Object.<String, Boolean>}
+ */
+var loadedAssets = {};
+
+/**
+ * Becomes 'true' when the 'beforeunload' event fires. This prevents us from
+ * reporting file load failures because a user has navigated away from the
+ * current page. @see https://tt.amazon.com/0033869960
+ * @type Boolean
+ */
+var pageUnloaded = false;
+
+onEvent(window, 'beforeunload', function () {
+    pageUnloaded = true;
+
+    // onBeforeUnload doesn't guarantee that the page is being unloaded; the
+    // event could be cancelled via a prompt. Thus, we re-enable after 10
+    // seconds
+    setTimeout(function () {
+        pageUnloaded = false;
+    }, 10000);
+});
+
+
+/**
+ * Check if the given URL should use CORS
+ * Use CORS for URL with 'AUIClients' or 'images/I'
+ * @param {String} url The URL to check
+ *
+ * The following implementation minimizes the compiled file size.
+ *
+ * Other candidates were:
+ *
+ * function shouldUseCorsForUrl(url) {
+ *     var shiftJisCompatibleMatcher = new RegExp(
+ *         "images" + SAFE_BACKSLASH + "/I|AUIClients"
+ *     );
+ *     return shiftJisCompatibleMatcher.test(url);
+ * }
+ * function shouldUseCorsForUrl(url) {
+ *     return url.indexOf("images/I") !== -1 || url.indexOf("AUIClients") !== -1;
+ * }
+ * function shouldUseCorsForUrl(url) {
+ *     var shiftJisCompatibleMatcher = new RegExp(
+ *         "images" + SAFE_BACKSLASH + "/I|AUIClients"
+ *     );
+ *     return  shiftJisCompatibleMatcher.test(url) || url.indexOf("AUIClients") !== -1;
+ * }
+ *
+ * Compiled files size: https://paste.amazon.com/show/micay/1424219063
+ *
+ */
+function shouldUseCorsForUrl(url) {
+    // Expect CORS headers for URL with 'AUIClients'
+    // Expect CORS headers for all javascript files served from "images/I".
+    // Details: https://tt.amazon.com/0034915627
+    return /AUIClients|images[/]I/.test(url);
+}
+
+/**
+ * Creates a script or link element (as appropriate) and adds it to the DOM
+ * @param {Boolean} isJavaScript Whether we are creating a javascript tag.
+ *    'false' implies we are creating a link tag
+ * @param {String} url The URL to load
+ * @param {Boolean} useCors Whether to enable CORS for this load
+ * @param {Function} onError A callback to invoke when a load fails
+ * @param {Function} [onLoad] A callback to invoke when loading succeeds
+ */
+function addElement( isJavaScript, url, useCors, onError, onLoad ) {
+    var elem = document.createElement(isJavaScript ? 'script' : 'link');
+    onEvent(elem, 'error', onError);
+    /* Browser Support Note
+     *
+     * onLoad is not supported on: IE < 9, IOS < 5, Android < 4.3, old Amazon Silk & old PhantomJS
+     * see: https://pie.gd/test/script-link-events/
+     *
+     * IE can be fixed by adding support for onReadyStateChange. Other browsers require more invasive hacks:
+     * http://www.phpied.com/when-is-a-stylesheet-really-loaded/
+     *
+     * Amazon Rush requires History support which none of the above have either.
+     */
+    if (onLoad) {
+      onEvent(elem, 'load', onLoad);
+    }
+
+    if (isJavaScript) {
+        elem.type = 'text/javascript';
+        elem.async = true;
+        if (useCors && shouldUseCorsForUrl(url)) {
+            elem.setAttribute('crossorigin', 'anonymous');
+        }
+        elem.src = url;
+    }
+    else {
+        elem.rel = 'stylesheet';
+        elem.href = url;
+    }
+
+    document.getElementsByTagName('head')[0].appendChild(elem);
+}
+
+
+/**
+ * Generates a function that will add the given tag to the head
+ * @param {Object} self
+ * @param {Boolean} [isJavaScript=false] Whether we are creating a javascript tag
+ *    'false' implies we are creating a link tag
+ * @return {Loader} Returns a configured loader method
+ */
+function createLoader(self, isJavaScript) {
+
+    // This is the definition of P.load.js and P.load.css
+    /**
+     * @param {string} url the url to load
+     * @param {Function} onLoad a callback to invoke when the url has been loaded
+     * @return {Boolean} Returns true if the url will be loaded, false if it was already loaded.
+     */
+    return function load(url, onLoad) {
+
+        // Have we loaded this url
+        if (loadedUrls[url]) {
+            return false;
+        }
+
+        loadedUrls[url] = true;
+
+        // Count the number of resources loaded by this page
+        ueCount('resource_count');
+
+        // Whether this is the first time we've tried to load this resource
+        var isFirstTry = true;
+
+        /**
+         * Loads this Asset URL onto the page and sets up retry logic if needed
+         */
+        function loadUrl() {
+            addElement(isJavaScript, url, isFirstTry, function onError(evt) {
+                if ( pageUnloaded ) {
+                    ueCount('resource_unload');
+                }
+                else if ( isFirstTry ) {
+                    isFirstTry = false;
+                    ueCount('resource_retry');
+                    loadUrl();
+                }
+                else {
+                    ueCount('resource_error');
+                    self.log('Asset failed to load: ' + url);
+                }
+
+                // Letting it bubble will only cause mystery errors, like these:
+                // https://tt.amazon.com/0029734347
+                if ( evt && evt.stopPropagation ) {
+                    evt.stopPropagation();
+                }
+                // TODO: Remove this clause once we no longer support <= IE8
+                else if ( window.event ) {
+                    window.event.cancelBubble = true;
+                }
+            }, onLoad);
+        }
+
+        // The following is a trick to reduce file size. `loadUrl` doesn't have
+        // a return value, thus it returns undefined. Adding `!` casts this to
+        // `true`. It is equivalent to:
+        //    loadUrl();
+        //    return true;
+        return !loadUrl();
+    };
+}
+
+/* Done importing _load.js */
+
+
+var PRIVATE_PREFIX_REGEX = /^prv:/;
+
+/**
+ * A map of components that have been registered mapped to the namespace/error attribution of
+ * the previously registered component
+ * @type {Object.<String,String>}
+ */
+var registered = {};
+
+/**
+ * This is a map of components to their fully resolved values
+ * @type {Object.<String,*>}
+ */
+var components = {};
+
+/**
+ * A map of functions used to decorate a component every time it is used
+ * @type {Object.<String,Function(Object,String,Object)>}
+ */
+var decorators = {};
+
+/**
+ * Data describing the execution status of registered components
+ * @type {Object.<String,Object>}
+ */
+var debug = {};
+
+/**
+ * Counter for naming anonymous callbacks in debug data
+ */
+var anon = 0;
+
+/**
+ * Returns an array of resolved dependencies
+ * @param {String} name The component whose dependencies are being resovled
+ * @param {Object} localP The instance of P being used by this consumer
+ * @param {String[]} depends The dependency names to resolve
+ * @return {*[]} Returns the dependencies
+ */
+function resolveDependencies(name, localP, depends) {
+  // The object passed to each dependency as it is decorated
+  var callerInfo = {
+    name: name,
+    guard: function guard(fn) { return localP.guardFatal(name, fn); },
+    logError: function logError(err, message, level) {
+      localP.logError(err, message, level, name);
+    }
+  };
+
+  // Collect the values for each of the named dependencies
+  var values = [];
+  for (var i = 0; i < depends.length; i++) {
+
+    // If this dependency has decorator defined, it needs to be invoked
+    if ( components.hasOwnProperty(depends[i]) ) {
+      values[i] = decorators.hasOwnProperty(depends[i]) ?
+        decorators[depends[i]](components[depends[i]], callerInfo) :
+        components[depends[i]];
+    }
+  }
+  return values;
+}
+
+/**
+ * Builds a function that can be used as a 'register' or 'execute' api
+ * @param {String[]} dependencies A list of named dependencies that must be
+ *    resolved before the callback can be invoked.
+ * @param {Boolean} register Whether to store the result of the callback
+ * @param {Boolean} immediate Whether to execute the callback in the
+ *    scheduler or in the current execution stack
+ * @param {Boolean} dontInvoke Dont call the passed value, just store
+ *    whatever is given as the component value
+ * @return {Executor} Returns the configured executor
+ */
+function buildExecutor(dependencies, register, immediate, dontInvoke, that) {
+
+  return function executor(name, callback) {
+
+    var self = that || this;
+
+    // Compensate for an execute call without a name
+    if (isFunc(name)) {
+      callback = name;
+      name = undefined;
+    }
+
+    if (register) {
+
+      // Prepend apropriate namespace
+      name =  name ? name.replace(PRIVATE_PREFIX_REGEX, ""):  "__NONAME__";
+
+      // Throw if the component is already registered
+      if (registered.hasOwnProperty(name)) {
+        self.error(
+          join(', reregistered by ',
+            join(' by ', name + ' already registered', registered[name]),
+            self.attribution
+          ),
+          name
+        );
+      }
+
+      // Mark that this component is registered so future registration attempts will throw an error
+      registered[name] = self.attribution;
+    }
+
+
+    // Make a copy of dependencies so that it is not shared across executors. This
+    // prevent prefix replacement from getting run twice on the same array.
+    var rawDependencies = [];
+    for (var i = 0; i < dependencies.length; i++) {
+      rawDependencies[i] = dependencies[i].replace(PRIVATE_PREFIX_REGEX, "");
+    }
+
+    // Store debug data about this component
+    var debugData = debug[name || "anon" + (++anon)] = {
+      depend: rawDependencies,
+      registered: performanceTimestamp(),
+      namespace: self.namespace
+    };
+
+    /**
+     * Executes the callback
+     */
+    function run() {
+
+      var result = null;
+      if (dontInvoke) {
+        result = callback;
+      } else if (isFunc(callback)) {
+        debugData.start = performanceTimestamp();
+        result = callback.apply(window, resolveDependencies(name, self, rawDependencies));
+        debugData.end = performanceTimestamp();
+      }
+
+      if (register) {
+        components[name] = result;
+        notify(name);
+      }
+
+      debugData.done = true;
+    }
+
+    if (immediate) {
+
+      // Note that we don't wrap immediately executed functions in a guard.
+      // This is because we don't control the execution stack for these
+      // functions. If someone throws inside a P.now and catches outside, we
+      // have no way of knowing that a subsequent exception isn't still inside
+      // that P.now. This, for example, would attribute to the wrong place:
+      //
+      //  P.execute("This block SHOULD get attribution", function () {
+      //    try {
+      //      P.now("lib").execute("This gets attribution", function (lib) {
+      //        throw new Error("This error gets caught by the app");
+      //      });
+      //    }
+      //    catch (e) {}
+      //    throw new Error("We can't tell this is a different exception");
+      //  });
+
+      run();
+    } else {
+      onNotify(rawDependencies, self.guardFatal(name, run));
+    }
+
+    return {
+
+      /**
+       * Assigns a decorator for this module. The decorator is executed every
+       * time another module declares a dependency on this module. This allows
+       * you to decorate this module for every consumer. Use with care.
+       */
+      decorate: function (decorator) {
+        decorators[name] = self.guardFatal(name, decorator);
+      }
+    };
+  };
+}
+
+/**
+ * Builds a 'when' interface method, which executes a function after a
+ * list of dependencies have been called in
+ * @param {Boolean} immediate Whether the user provided callback should be
+ *    scheduled immediately or if it should wait for the dependencies to be
+ *    fully resolved
+ * @return {Function(...String): WhenInterface}
+ */
+function buildWhen(immediate) {
+  return function when() {
+    var dependencies = Array.prototype.slice.call(arguments);
+    return {
+      execute: buildExecutor(dependencies, false, immediate, false, this),
+      register: buildExecutor(dependencies, true, immediate, false, this)
+    };
+  };
+}
+
+/**
+ * The backslash character doesn't exist in Shift-JIS encoding,
+ * so we need to construct one safely to use in RegExp constructors.
+ * For more details, see the transform that enforces this:
+ * https://tiny.amazon.com/1aoayuj8n/codeamazpackAmazblobfc55src
+ *
+ * e.g.
+ *    a regex matching url with images/I
+ * has to be written as
+ *    var matcher = new RegExp("images" + SAFE_BACKSLASH + "/I");
+ *    var result = matcher.test(url);
+ */
+var SAFE_BACKSLASH = String.fromCharCode(0x5c);
+
+// _interface.js references prvP, so we have to declare it before we load _interface.js.
+var prvP;
+
+// Defines the interface class `Page`
+/* Importing _interface.js */
+/**
+ * Asynchronous JavaScript dependency manager and asset loader
+ */
+
+
+/**
+ * Tracks context about the currently running task so exceptions can be
+ * attributed to it. This is an array because calls could potentially be
+ * nested. For example:
+ *
+ *     P.execute("MyApp", function () {
+ *         P.guardFatal("My Callback", function () {
+ *             throw new Error("oops");
+ *         })();
+ *     });
+ *
+ * @type {{logLevel: string, attribution: string}[]}
+ */
+var contextStack = [];
+
+/**
+ * Attach a global error handler that attaches attribution to javascript
+ * errors before reporting them
+ */
+var existingOnError = window.onerror;
+window.onerror = function auiOnError(message, file, line, col, error) {
+
+    // When someone throws a non Error object, bundle it up as a fake error
+    // so we can attach attribution information to it
+    if ( !error || typeof error !== "object" ) {
+        error = new Error(message, file, line);
+        error.columnNumber = col;
+
+        // If enough info is provided for a stack trace, mock one out. If not,
+        // we need to make sure this gets zeroed out. Otherwise, it will skew
+        // the "hasStack" data in RTLA.
+        error.stack = (file || line || col) ?
+            join(
+                SAFE_BACKSLASH,
+                error.message,
+                "at " + join(":", file, line, col)
+            ) :
+            undefined;
+    }
+
+    // Attach the attribution info to the error object. It will get picked up
+    // by the CSM global error handler
+    var context = contextStack.pop() || {};
+    // If "error.attribution" is already defined, it should include the package
+    // name information contained in "context.attribution". Including both
+    // would be redundant.
+    error.attribution = join(":", error.attribution || context.attribution, context.name);
+    error.logLevel = context.logLevel;
+
+
+    // Bubble the attribution into the console so it is useful when debugging.
+    // This doesn't give a full stack trace as that should be handled by the
+    // browser.
+    if ( error.attribution && console && console.log ) {
+        console.log([
+            error.logLevel || "ERROR", message, "thrown by", error.attribution
+        ].join(" "));
+    }
+
+    // Hard reset the run stack; The fact that we are in the global error
+    // handler means an exception unwound the entire stack.
+    contextStack = [];
+
+    if ( existingOnError ) {
+        var args = [].slice.call(arguments);
+        args[4] = error;
+        existingOnError.apply(window, args);
+    }
+};
+
+
+/**
+ * Builds a guard that wraps another callback and reports an error if it
+ * throws anything.
+ * @param {String} level The error level
+ * @param {Object} context Optional context to push onto the context stack for this guard. Will otherwise use
+ * attribution from caller
+ * @return {Function(string, string=)}
+ */
+function buildGuard(level, context) {
+
+    return function guard(name, callback) {
+        if ( !callback ) {
+            callback = name;
+            name = undefined;
+        }
+
+        var attribution = this.attribution;
+
+        return function guarded () {
+            contextStack.push( context || {
+              attribution: attribution,
+              name: name,
+              logLevel: level
+            });
+            var result = callback.apply(this, arguments);
+            contextStack.pop();
+            return result;
+        };
+    };
+}
+
+
+/**
+ * The type definition for `execute` and `register` methods
+ * @callback Executor
+ * @param {String|Function(...*)} name The name of this handler. If this is
+ *    given a function instead of a string, a random name is generated and
+ *    the `callback` parameter is ignored
+ * @param {Function(...*)=} callback The callback to invoke, if a name was
+ *    provided.
+ * @return {Object}
+ */
+
+/**
+ * The interface returned by a call to 'When'
+ * @typedef {{execute: Executor, register: Executor}} WhenInterface
+ */
+
+/**
+ * The component manager interface
+ * @param {String} errAttrib The attribution tag to send for any errors
+ * @param {String} namespace The namespace behind which private modules will be attached
+ */
+function Page(errAttrib, namespace) {
+
+    /**
+     * Allows JS and CSS assets to be loaded onto the page
+     */
+    this.load = {
+        js: createLoader(this, true),
+        css: createLoader(this)
+    };
+
+    // Readonly namespace for private modules
+    defineProp(this, 'namespace', namespace);
+
+    // The package to which errors should be attributed
+    defineProp(this, 'attribution', errAttrib);
+}
+
+
+Page.prototype = {
+
+    /**
+     * Logs an error and message
+     * @see http://w?ClientSideMetrics/UserDocs/JavascriptErrors
+     * @param {Error} err The error to log
+     * @param {String} message The message to log
+     * @param {String} level The error log level. Default is overridden to
+     *    "ERROR". Could also be "FATAL" or "WARN"
+     * @param {String} attribution Any information about the team that owns
+     *    this error
+     * @return {boolean} Returns whether the error was logged
+     */
+    logError: function logError(err, message, level, attribution) {
+        var info = {
+            message: message,
+            logLevel: level || 'ERROR',
+            attribution: join(':', this.attribution, attribution)
+        };
+        if (window.ueLogError) {
+            window.ueLogError(err || info, err ? info : null);
+            return true;
+        }
+        else if (console && console.error) {
+            console.log(info);
+            console.error(err);
+        }
+        return false;
+    },
+
+    /**
+     * Throws an error
+     * @param {String} message The error message
+     * @param {String} module
+     * @param {String} method
+     * @param {String} componentName The name of the component, if any
+     *    (e.g. during component registration)
+     */
+    error: function error(message, module, method, componentName) {
+        var err = new Error( join(':', componentName, message, method) );
+        err.attribution = join(":", this.attribution, module);
+        throw err;
+    },
+
+    /**
+     * Wraps a callback and returns another method. That method will pass
+     * through any arguments to the callback, then catch and swallow any
+     * exceptions thrown by the callback. Reports exceptions as "ERROR"s
+     * @param {String=} name The name of the callback being executed
+     * @param {Function(...*)} callback The method to wrap
+     */
+    // This works because the default error level is "ERROR"
+    guardError: buildGuard(),
+
+    /**
+     * Wraps a callback and returns another method. That method will pass
+     * through any arguments to the callback, then catch and swallow any
+     * exceptions thrown by the callback. Reports exceptions as "FATALS"s
+     * @param {String=} name The name of the callback being executed
+     * @param {Function(...*)} callback The method to wrap
+     */
+    guardFatal: buildGuard("FATAL"),
+
+    /**
+     * Similar to the two above guards, but inspects the current context
+     * stack for attribution information. Useful for attaching attribution
+     * of the current execution scope instead of what's currently on P
+     * @param {Function(...*)} callback The method to wrap
+     */
+    guardCurrent: function(fn) {
+        var currentAttribution = contextStack[contextStack.length - 1];
+        return currentAttribution ? buildGuard(currentAttribution.logLevel, currentAttribution).call(this, fn) : fn;
+    },
+
+    /**
+     * Logs an error
+     * @see http://w?ClientSideMetrics/UserDocs/JavascriptErrors
+     * @param {Error|String} message The error to log
+     * @param {String} level The error log level. Default is overridden to
+     *    "ERROR". Could also be "FATAL" or "WARN"
+     * @param {String} attribution Any information about the team that owns
+     *    this error
+     * @return {boolean} Returns whether the error was logged
+     */
+    log: function log(message, level, attribution) {
+        return this.logError(null, message, level, attribution);
+    },
+
+    /**
+     * Like register, but simply registers whatever is given
+     * @param {String} name The name of the module to register
+     * @param {Object} value The value of the module
+     */
+    declare: buildExecutor([], true, true, true),
+
+    /**
+     * Executes a method and registers the result
+     * @param {String} name The name of the module to register
+     * @param {Function()} callback The method to execute. The result of
+     *    this function call are used as the value for the module
+     */
+    register: buildExecutor([], true),
+
+    /**
+     * Executes a method
+     * @param {String} name The name of this execution block
+     * @param {Function()} callback The method to execute
+     */
+    execute: buildExecutor([]),
+
+    /**
+     * The Build ID
+     * @type String
+     */
+    AUI_BUILD_DATE: AUI_BUILD_DATE,
+
+    /**
+     * Provides an interface for depending on other modules
+     * @param {...String} modules A list of module dependencies
+     * @return {WhenInterface}
+     */
+    when: buildWhen(),
+
+    /**
+     * Provides an interface for gathering dependencies that have been
+     * defined without waiting for those that haven't.
+     * @param {...String} modules A list of module dependencies
+     * @return {WhenInterface}
+     */
+    now: buildWhen(true),
+
+    /**
+     * Triggers a timed, tracked event
+     * @param {String} name The name of the event to trigger
+     * @param {*=} data Any miscellaneous data associated with this event
+     * @param {Object} options Configuration for P.trigger behaviors
+     */
+    trigger: function trigger(name, data, options) {
+        var currentTime = timestamp();
+
+        this.declare(name, {
+            data: data,
+            pageElapsedTime: currentTime - (window.aPageStart || NaN),
+            triggerTime: currentTime
+        });
+
+        if (options && options.instrument) {
+            prvP.when("prv:a-logTrigger").execute(function (fn) { fn(name); });
+        }
+    },
+
+    /**
+     * Handle triggers
+     * @deprecated
+     */
+    handleTriggers: function handleTriggers() {
+        this.log("handleTriggers deprecated");
+    },
+
+    /**
+     * @deprecated - Kept in to maintain backwards compatibility
+     * Returns a new version of P that will attach an attribution field to
+     * any errors that it reports back to CSM
+     * @param {String} attribution The Attribution field to pass
+     */
+    attributeErrors: function attributeErrors(attribution) {
+        return new Page(attribution);
+    },
+
+    /**
+     * Returns a new version of P that will attach a namespace to private modules
+     * and an attribution field to any errors that it reports back to CSM
+     * @param {String} namespace The namespace for private modules
+     * @param {String} attribution The Attribution field to pass
+     */
+    _namespace: function _namespace(attribution, namespace) {
+        return new Page(attribution, namespace);
+    }
+};
+
+
+
+/* Done importing _interface.js */
+
+
+// This is basically: window.AmazonUIPageJS = new Page()
+// We set it to a variable so we can use in subsequent imports.
+var winP = defineProp(window, 'AmazonUIPageJS', new Page());
+
+// Private P, for talking secretly with A. (Shhhhh...)
+prvP = winP._namespace("PageJS", "AmazonUI");
+
+// Make the debug data available. Private P ensures that direct
+// access from non-AUI teams is disallowed
+prvP.declare("prv:p-debug", debug);
+
+// Capture failed attempts on unavailable declarative action
+/* Importing weblabs/_event_recorder.js */
+/**
+ * Event handlers to track user interactions
+ * before the page is considered ready.
+ * @see SIM-4780490 for a discussion
+ */
+
+winP.declare('p-recorder-events', []);
+winP.declare('p-recorder-stop', function() {});
+/* Done importing weblabs/_event_recorder.js */
+
+
+// For AUI pages, this is where window.P gets set
+/* Importing _alias.js */
+//AmazonUI Page JS Alias
+
+defineProp(window, 'P', winP);
+/* Done importing _alias.js */
+
+
+// Add a DOM Ready listener that guarantees the event gets invoked
+/* Importing _domready.js */
+/**
+ * Add a Body Begin poller to the page
+ *
+ * This will enable earlier execution of events compared to depending on
+ * "ready" if we or other users needs to bind events to the 'body' element.
+ */
+function bodyBegin() {
+  if(!document.body) {
+    setTimeout(bodyBegin, 20);
+  } else {
+    winP.trigger("a-bodyBegin");
+  }
+}
+
+bodyBegin();
+
+/**
+ * Add a DOM Ready listener to the page
+ *
+ * There is a bug in IE9 and IE10 that sometimes sets document.readyState to
+ * 'interactive' before 'DOMContentLoaded' has triggered. That means that we
+ * can't reliably determine if 'DOMContentLoaded' has already fired. However,
+ * PageJS is inlined into the page so it is guaranteed to execute before
+ * the DOM is ready.
+ *
+ * Note that this doesn't handle <= IE8 (which don't support "DOMContentLoaded"
+ * or "addEventListener"), but that's okay; jQuery does a good enough job of
+ * detecting DOM Ready on those browsers.
+ *
+ * @see https://issues.amazon.com/AUI-2779
+ */
+if (document.addEventListener) {
+    var triggerDomReady;
+    document.addEventListener(
+        "DOMContentLoaded",
+        triggerDomReady = function () {
+            // There is a listener in `A` that converts this into the
+            // `ready` event
+            winP.trigger("a-domready");
+            document.removeEventListener(
+                "DOMContentLoaded", triggerDomReady, false);
+        },
+        false
+    );
+}
+
+/* Done importing _domready.js */
+
+
+// Detect browser capabilities and set appropriate classes on <html>
+/* Importing _detect.js */
+/**
+ *  AmazonUI browser and device detection
+ *  Techniques Derived from Dive Into HTML5 and Zepto Detect
+ *  https://github.com/dcompute/Zepto-Detect/blob/master/zepto.detect.js
+ */
+
+var html = document.documentElement;
+
+/**
+ *  Add a class to a DOM node before jQuery is available.
+ *  If the className already exists, then it'll be moved to the end of the list.
+ *
+ *  @private
+ *  @param {DOM node} element
+ *  @param {string} className
+ */
+
+function addClass(element, className) {
+  element.className = classNameWithout(element, className) + " " + className;
+}
+
+/**
+ *  Remove a class from a DOM node before jQuery is available.
+ *  Assumes the existing className is well-formed (no duplicates, no extra spaces).
+ *  Will not clean up existing spaces, but won't leave any extra behind.
+ *
+ *  @private
+ *  @param {DOM node} element
+ *  @param {string} className
+ */
+
+function removeClass(element, className) {
+  element.className = classNameWithout(element, className);
+}
+
+/**
+ *  Returns the element's className without the provided className.
+ *  Does not set the className.
+ *  @private
+ *  @param {DOM node} element
+ *  @param {string} className
+ */
+function classNameWithout(element, remove) {
+  return (" " + element.className + " ").split(" " + remove + " ").join(" ").replace(/^ | $/g, '');
+}
+
+// CSS support detection closure
+var cssSupported = (function () {
+  var vendorPrefixes = 'O,ms,Moz,Webkit'.split(',');
+  var element = document.createElement('div');
+
+  /**
+   *  Determine if a CSS property is supported.
+   *
+   *  @private
+   *  @param {string} property
+   *
+   *  @return {boolean}
+   */
+  function test(property) {
+    var upperCaseProperty = property.charAt(0).toUpperCase() + property.substr(1);
+    var prefixedProperties = (vendorPrefixes.join(upperCaseProperty + ' ') + upperCaseProperty + ' ' + property).split(' ');
+    var i = prefixedProperties.length;
+
+    while (i--) {
+      if (element.style[prefixedProperties[i]] === '') {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Determine if CSS gradients are supported
+   * Prefixes:
+   * Firefox 16, 2012-10-09, -moz- needed before FF16, no AUI support for -moz-linear-gradient.
+   * Opera 12.10, 2012-11-06, -o- needed before O 12.10, no AUI support for -o-linear-gradient.
+   * Internet Explorer 10, 2012-11-04, returns false for IE8 and IE9, no prefix needed for IE10.
+   * Chrome 26, 2013-03-26, no prefix needed.
+   * Chrome 26 for Android, 2013-04-03, no prefix needed.
+   * Chrome 26 for iOS, 2013-04-09, no prefix needed.
+   * Safari 6.1, 2013-06-11, -webkit- needed before 6.1, still needs -webkit-gradient.
+   *
+   *  @private
+   *
+   *  @return {boolean}
+   */
+   function testGradients() {
+     var backgroundImage = 'background-image:';
+     var webkitPrefix = '-webkit-';
+     var gradient = 'gradient(linear,left top,right bottom,from(#1E4),to(white));';
+     var linearGradient = 'linear-gradient(left top,#1E4,white);';
+     element.style.cssText = (
+       backgroundImage + webkitPrefix + gradient +
+       backgroundImage + webkitPrefix + linearGradient +
+       backgroundImage + linearGradient
+     );
+     return ~element.style.backgroundImage.indexOf('gradient');
+   }
+
+  /**
+   *  Determine if CSS 3D transformations are supported by the browser
+   *
+   *  @private
+   *
+   *  @return {boolean}
+   */
+  function testTransform3d() {
+    var supports3d = false;
+    if (window.matchMedia) {
+      supports3d = window.matchMedia("(-webkit-transform-3d)").matches;
+    }
+    // TODO http://blog.joelambert.co.uk/2012/02/13/3d-transformations-with-firefox-10/
+    // Maybe try 'perspective' in document.body.style (MozPerspective also, for FF)
+    return supports3d;
+  }
+
+  return {
+    testGradients: testGradients,
+    test: test,
+    testTransform3d: testTransform3d
+  };
+}());
+
+/**
+ *  A string/function hash containing browser capability tests.  When the test is executed, it is replaced with
+ *  the boolean result of the function.
+ *
+ *  @public
+ *  @type {object}
+ */
+
+// Note: mobile/tablet flags are not wrapped in safeTest() because we need them for other tests.
+//   Other code already depends on html being defined, so this should not expose any new risk.
+var htmlClassName = html.className;
+var isMobile = /(^| )a-mobile( |$)/.test(htmlClassName);
+var isTablet = /(^| )a-tablet( |$)/.test(htmlClassName);
+
+var capabilities = {
+  audio: function () {
+    return !!document.createElement('audio').canPlayType;
+  },
+  video: function () {
+    return !!document.createElement('video').canPlayType;
+  },
+  canvas: function () {
+    return !!document.createElement('canvas').getContext;
+  },
+
+  // SVG (does not test for inline or SMIL)
+  svg: function() {
+    return !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect;
+  },
+
+  // Detect HTML5 features
+  offline: function () {
+    return navigator.hasOwnProperty && navigator.hasOwnProperty('onLine') && navigator.onLine;
+  },
+  dragDrop: function () {
+    return 'draggable' in document.createElement('span');
+  },
+  geolocation: function () {
+    return !!navigator.geolocation;
+  },
+  history: function () {
+    return !!(window.history && window.history.pushState);
+  },
+  webworker: function() {
+    return !!window.Worker;
+  },
+
+  // Detect input types
+  autofocus: function () {
+    return 'autofocus' in document.createElement('input');
+  },
+  inputPlaceholder: function () {
+    return 'placeholder' in document.createElement('input');
+  },
+  textareaPlaceholder: function () {
+    return 'placeholder' in document.createElement('textarea');
+  },
+
+  // Storage
+  localStorage: function () {
+    return 'localStorage' in window && window.localStorage !== null;
+  },
+
+  // Detect device attributes
+  orientation: function () {
+    return 'orientation' in window;
+  },
+  touch: function () {
+    return 'ontouchend' in document;
+  },
+  gradients: function () {
+    return cssSupported.testGradients();
+  },
+  hires: function () {
+    var isHiRes = window.devicePixelRatio && window.devicePixelRatio >= 1.5 ||
+                   window.matchMedia && window.matchMedia('(min-resolution:144dpi)').matches;
+    // log 0 for standard res, 1 for hi res, under hiResMobile, hiResTablet, or hiResDesktop
+    ueCount('hiRes'+(isMobile?'Mobile':(isTablet?'Tablet':'Desktop')), isHiRes ? 1 : 0);
+    return isHiRes;
+  },
+  transform3d: function () {
+    return cssSupported.testTransform3d();
+  },
+
+  // Test for browsers which are known to support overflow:scroll properly
+  // Tests for Android, iOS 5+, Mobile FF, Silk, and AmazonApp
+  touchScrolling: function () {
+    return testUserAgent(new RegExp(
+        "Windowshop|android|OS ([5-9]|[1-9][0-9]+)(_[0-9]{1,2})+ like Mac OS X|Chrome|Silk|Firefox|Trident.+?; Touch",
+        "i"
+    ));
+  },
+  // Detect mobile device type
+  ios: function () {
+    return testUserAgent(/OS [1-9][0-9]*(_[0-9]*)+ like Mac OS X/i) && !testUserAgent(/trident|Edge/i);
+  },
+  android: function () {
+    return testUserAgent(/android.([1-9]|[L-Z])/i) && !testUserAgent(/trident|Edge/i);
+  },
+  // This actually checks to see if the pageContext deviceType is set to mobile
+  mobile: function () {
+    return isMobile;
+  },
+  // This actually checks to see if the pageContext deviceType is set to tablet
+  tablet: function () {
+    return isTablet;
+  },
+  // When the rtl variant is set to true, the html tag emits a dir="rtl"
+  rtl: function() {
+    return html.dir === 'rtl';
+  }
+};
+
+/**
+ *  Safely execute feature tests.
+ *
+ *  Chrome, Firefox, and IE10 occaisionally throw exceptions when
+ *  checking for the existing of some feature properties.
+ *
+ *  If a test throws an exception, just assume the test returned false.
+ *
+ *  @private
+ */
+
+function safeTest(testFn) {
+  try {
+    return testFn();
+  } catch (e) {
+    return false;
+  }
+}
+
+// Run the feature tests
+for (var cap in capabilities) {
+  if (capabilities.hasOwnProperty(cap)) {
+    capabilities[cap] = safeTest(capabilities[cap]);
+  }
+}
+
+// Run the CSS property tests
+var cssProperties = 'textShadow textStroke boxShadow borderRadius borderImage opacity transform transition'.split(' ');
+for (var i = 0; i < cssProperties.length; i++) {
+  capabilities[cssProperties[i]] = safeTest(function () { // jshint ignore:line
+    return cssSupported.test(cssProperties[i]);
+  });
+}
+
+/**
+ *  Whether or not the event handlers for the responsive grid are currently bound.
+ *
+ *  @private
+ *  @type {boolean}
+ */
+var orientationEnabled = true;
+
+/**
+ *  Timer used for polling the window dimensions for the responsive grid.
+ *
+ *  @private
+ *  @type {number}
+ */
+var detectTimer = 0;
+
+/**
+ *  This contains the last set of window dimensions that were actually used to determine
+ *  the orientation used by the responsive grid.
+ *
+ *  @private
+ *  @type {object}
+ */
+var prevDimensions = {
+  w: 0,
+  h: 0
+};
+
+/**
+ *  The maximum number of times we're willing to poll the window looking for dimension changes.
+ *
+ *  @private
+ *  @constant
+ *  @type {number}
+ */
+var MAX_POLL_ATTEMPTS = 4;
+
+/**
+ *  Keeps track of the number of remaining poll attempts before giving up trying to detect
+ *  an orientation change.
+ *
+ *  @private
+ *  @type {number}
+ */
+var pollCount = MAX_POLL_ATTEMPTS;
+
+/**
+ *  Get window/screen dimensions in a cross browser way before jQuery is available.
+ *
+ *  @private
+ *
+ *  @return {object}  The height and width of the window.
+ */
+
+function windowSize() {
+  return {
+    w: window.innerWidth || html.clientWidth,
+    h: window.innerHeight || html.clientHeight
+  };
+}
+
+/**
+ *  Detect window orientation and set widescreen class on devices that support orientation
+ *  On desktop, set widescreen class on screens wider than 1250px.
+ *
+ *  @private
+ */
+
+function detectOrientation() {
+  if (orientationEnabled) {
+    var dimensions = windowSize();
+    var wideScreen = false;
+
+    // Opening the keyboard shouldn't trigger an orientation change. If the width of the screen changes less than a
+    // certain epsilon, then we'll skip the layout changes and poll just in case the browser doesn't update the screen
+    // dimensions until after the resize handlers are called.
+    if (Math.abs(dimensions.w - prevDimensions.w) > 5 || dimensions.h - prevDimensions.h > 50) {
+      prevDimensions = dimensions;
+      pollCount = MAX_POLL_ATTEMPTS;
+
+      if (capabilities.mobile || capabilities.tablet) {
+        // Touch devices where differences in implementation of screen and orientation are too hard to detect,
+        // so we use a simple width > height to determine if we should be widescreen. However at a certain point
+        // it doesn't make sense to be wide, as the screen size is too small. We set this threshold at 450px.
+        // More context: AUI-8415
+        wideScreen = dimensions.w > 450 && dimensions.w > dimensions.h;
+      } else {
+        // For Desktop browsers, we use a heuristic to determine whether we are widescreen
+        wideScreen = dimensions.w >= 1250;
+      }
+
+      // Ensure the correct class is on the html node
+      if (wideScreen) {
+        addClass(html, 'a-ws');
+      } else {
+        removeClass(html, 'a-ws');
+      }
+    } else if (pollCount > 0) {
+      pollCount--;
+      // Approximate length of requestAnimationFrame used for polling because...well why not?
+      detectTimer = setTimeout(detectOrientation, 16);
+    }
+  }
+}
+
+/**
+ *  When used without a parameter, will toggle the responsive grid event listeners on or off.
+ *  When a boolean is passed, it will be used to explicitly enable or disable detection.
+ *
+ *  @public
+ *  @param {boolean} toggle  (Optional) Used to explicitly enable or disable orientation detection and the responsive grid
+ */
+function toggleResponsiveGrid(toggle) {
+  orientationEnabled = toggle === undefined ? !orientationEnabled : !!toggle;
+
+  if (orientationEnabled) {
+    detectOrientation();
+  }
+}
+
+/**
+ *  Return whether or not the repsonive grid handler is enabled.
+ *
+ *  @public
+ *  @return {boolean}
+ */
+function responsiveGridEnabled() {
+  return orientationEnabled;
+}
+
+// Start up the responsive grid
+detectOrientation();
+
+// The resize event handlers which will reset any window dimension polling which is happening and
+// execute the orientation detection for the responsive grid. Note that
+// 'onEvent' can be found in src/_util.js
+onEvent(window, 'resize', function handler() {
+  clearTimeout(detectTimer);
+  pollCount = MAX_POLL_ATTEMPTS;
+  detectOrientation();
+});
+
+// Local storage backfill that masks the Firefox issue as described in
+// https://tt.amazon.com/0094243944
+var pLocalStorage = {
+  getItem: function (item) {
+    try {
+      return window.localStorage.getItem(item);
+    } catch (e) {}
+  },
+  setItem: function (key, item) {
+    try {
+      return window.localStorage.setItem(key, item);
+    } catch (e) {}
+  }
+};
+
+// Detect js support
+removeClass(html, 'a-no-js');
+addClass(html, 'a-js');
+
+// Detect iOS WebView and add a-ember correspondingly
+// Detection logic based on http://stackoverflow.com/a/9951404
+//
+// Also, because of https://issues.amazon.com/issues/AUI-7784, Ember
+// is not loaded correctly from app resources on iOS 9+. In this case,
+// if the user is selected for T1, fonts will be downloaded and causes FOIT.
+// We will temporarily block the system from loading Ember to avoid flash of invisible text.
+// Once AUI-7784 is fixed, we will replace the first UserAgent test with capabilities.ios.
+//
+// Not placing this in capabilities because we will not need webview detection in P
+// after Weblab AUI_76859, and BaseJS has isAmazonApp to help achieve similar thing
+if (testUserAgent(/OS [1-8](_[0-9]*)+ like Mac OS X/i) && !window.navigator.standalone && !testUserAgent(/safari/i)) {
+  addClass(html, 'a-ember');
+}
+
+// Determine which capability classes should be added to the <html> node
+var classes = [];
+for (var cap in capabilities) {
+  if (capabilities.hasOwnProperty(cap) && capabilities[cap]) {
+    // Convert capability to - delimited class name
+    classes.push('a-' + cap.replace(/([A-Z])/g, function ($1) {
+      return "-" + $1.toLowerCase();
+    }));
+  }
+}
+
+// Call addClass only once with all capabilities
+addClass(html, classes.join(' '));
+
+// Add the build date using the local variable (from the package-wrapping IIFE)
+html.setAttribute('data-aui-build-date', AUI_BUILD_DATE);
+
+/*
+ * The code above runs synchronously so the DOM is updated with the appropriate
+ * classes on the HTML element before the 'head' element is done loading. Necessary
+ * in order for us to ensure the browser only downloads one version of the
+ * sprite (1x or 2x and never both).
+ */
+winP.register('p-detect', function () {
+  return {
+    capabilities: capabilities,
+    localStorage: capabilities.localStorage && pLocalStorage,
+    toggleResponsiveGrid: toggleResponsiveGrid,
+    responsiveGridEnabled: responsiveGridEnabled
+  };
+});
+/* Done importing _detect.js */
+
+
+// Import Custom font loading logics
+/* Importing _custom_font.js */
+// Block UC Browser for now
+if (!testUserAgent(/UCBrowser/i)) {
+  // For custom fonts.  It is recommended to use a-fonts from BaseJS to lazy load
+  // to avoid excessive FOIT. Refer to `a_custom_font_loader` for usage.
+  if (capabilities.localStorage) {
+    // Note: localStorage('a-font-class') contains a ' '(space) seperated
+    // fontClassNames of the custom fonts which are loaded on the page at page load
+    // This logic will fail if you are loading fonts dynamically and swapping
+    // out the new font styles immediately
+    addClass(html, pLocalStorage.getItem('a-font-class'));
+  }
+}
+/* Done importing _custom_font.js */
+
+
+// Event error logging
+/* Importing weblabs/_event_revised_handling.js */
+/* A.events system to throw errors and continue processing asynchronously */
+winP.declare('a-event-revised-handling', false);
+/* Done importing weblabs/_event_revised_handling.js */
+
+
+// Service worker registration or unregistration
+/* Importing serviceworker/_sw.js */
+// Service workers only work over https
+// Import core functionality, like a register and unregister function, setup important vars (e.g the actual serviceworker object and a metric string)
+// Also import functionality for invoking the service worker action, which will itself import code required for detecting and deciding if the context is compatible (e.g mshop requirements like app or os version)
+/* Importing serviceworker/_sw_common.js */
+var UE_TAG_PREFIX = "sw:";
+var UNREGISTER_STRING = "unregister";
+var REGISTER_STRING = "register";
+var SUPPORTED_STRING = "supported";
+var UNSUPPORTED_STRING = "unsupported";
+var PROD_MSHOP_STRING = "prod_mshop";
+var BETA_MSHOP_STRING = "beta_mshop";
+var BROWSER_STRING = "browser";
+
+//Safely check if service worker is present in navigator, to prevent errors that come from calling
+//navigator.serviceWorker in a sandboxed environment (https://issues.amazon.com/issues/AUI-19381)
+var serviceWorker;
+try {
+  serviceWorker = navigator.serviceWorker;
+} catch(err) {
+  //leave sw undefined, tag the page
+  ueTag(UE_TAG_PREFIX + "nav_err");
+}
+
+// enable message passing from the service worker, if we have sw support
+if (serviceWorker) {
+  onEvent(serviceWorker, 'message', function(event) {
+    if (event && event.data) {
+      ueCount(event.data.k, event.data.v);
+    }
+  });
+
+  // let the current active service worker know (if present) that this client is ready to receive messages
+  // the clientId of this page is passed along as part of the postMessage, so there is no need to include it
+  if (serviceWorker.controller) {
+    serviceWorker.controller.postMessage("MSG-RDY");
+  }
+}
+
+function getMetricsPrefix(action, platform) {
+  return UE_TAG_PREFIX + (platform || "") + ":" + action + ":";
+}
+
+// Register the service worker, using the specified metrics strings for tagging the current page
+function registerServiceWorker(metricPrefix, actionName) {
+  var swPath = AUI_JS_DEBUG ? '/service-worker-dbg.js' : '/service-worker.js';
+
+  // try to load the service worker
+  serviceWorker
+    .register(swPath)
+    .then(function(){
+      logActionSuccess(metricPrefix);
+    })
+    .catch(function(error){
+      logActionFailure(error, metricPrefix, actionName);
+    });
+}
+
+/**
+ * Unregister the service worker, using the specified metrics strings for tagging the current page.
+ *
+ * This is wrapped in a blanket try/catch for bot traffic, bad browsers, and other future malformed browser cases.
+ *
+ * Known issues:
+ *   - UCBrowser has getRegistrations, but it returns undefined
+ *   - Google bot doesn't return a promise (tt/0422247131)
+ */
+function unregisterServiceWorker(metricPrefix, actionName) {
+  try {
+    serviceWorker.getRegistrations().then(function(registrations) {
+      registrations.forEach(function(registration) {
+        registration
+          .unregister()
+          .then(function() {
+            logActionSuccess(metricPrefix);
+          })
+          .catch(function(error) {
+            logActionFailure(error, metricPrefix, actionName);
+          });
+      });
+    });
+  } catch(err) {
+    // Synchronous issue occurred due to browser not adhering to the SW spec
+    ueTag(UE_TAG_PREFIX + 'api_error');
+  }
+}
+
+/**
+ * Log a counter indicating the action was completed successfully.
+ */
+function logActionSuccess(metricPrefix) {
+  ueCount(metricPrefix + 'success');
+}
+
+/**
+ * Log a counter and a JS error if the action failed.
+ *
+ * In CSM, this will look something like:
+ * [AUI SW] Failed to register service worker: A bad HTTP response code (404) was ...
+ */
+function logActionFailure(error, metricPrefix, actionName) {
+  // error should be a TypeError per service worker spec
+  winP.logError(error, '[AUI SW] Failed to ' + actionName + ' service worker: ');
+  ueCount(metricPrefix + 'failure');
+}
+
+/**
+ * Tag the page with all queued up page tags
+ * NOTE: This function should only be called once per page load, and at the same point in time for both register
+ * and unregister actions. This prevents mismatched population segments.
+ */
+var pageTags = [];
+function commitPageTags() {
+  pageTags.forEach(function(tag) {
+    ueTag(tag);
+  });
+}
+
+/**
+ * Queue up a tag for the page
+ */
+function tagPage(tag) {
+  pageTags.push(tag);
+}
+
+/**
+ * Wrapper for executing service worker registrations or unregistrations. This function takes in the passed config, of the form :
+ * {
+ *   reg : {
+ *     browser : {
+ *       action : CALLBACK
+ *     },
+ *     prodMshop : {
+ *       action : CALLBACK
+ *     },
+ *     betaMshop : {
+ *       action: CALLBACK
+ *     }
+ *   },
+ *   unreg : {
+ *     browser : {
+ *       action : CALLBACK
+ *     },
+ *     prodMshop : {
+ *       action : CALLBACK
+ *     },
+ *     betaMshop : {
+ *       action: CALLBACK
+ *     }
+ *   }
+ * }
+ *
+ * Where the callback is called, either at the appropriate time for SW registration, or at the appropriate time for SW unregistration
+ * The callback is only called if the requirements for the specified platform are met (browser, prod mshop, or beta app mshop)
+ * Only one callback is called from each config (registration and unregistration).
+ * This structure allows us to have a single path of registration logic that unregisters the weblab in prod mshop, while also registering the weblab in the browser (as an example)
+ *
+ * Not all browsers support service workers and others have quirks or
+ * partial support that require additional gating.
+ *
+ * Allow action if:
+ *    1. Service worker object exists.
+ *    2. getRegistration exists. getRegistrations is not supported in older Android
+ *       webviews and is needed to unregister the service worker, so don't 
+ *       bother trying to register. (Sage: 356230)
+ */
+function invokeServiceWorkerAction(actionMap) {
+  var registrationConfig = actionMap.reg;
+  var unregistrationConfig = actionMap.unreg;
+
+  // Checking for the serviceWorker object is not enough, since webviews on Android 6.x don't have getRegistrations
+  // defined, which is necessary for unregistering our service worker, so we can't support those clients
+  if (serviceWorker && serviceWorker.getRegistrations) {
+    // Don't wait for page load event to execute any service worker unregistrations
+    // All we need is BaseJS, since that means the Mshop cookie has been parsed
+    prvP.when('A', 'a-util').execute(function(A, utils) {
+      checkEligibilityAndRunActions(A, utils, unregistrationConfig, UNREGISTER_STRING);
+    });
+
+    // Wait for page load to queue up executing any service worker registration
+    onEvent(window, 'load', function() {
+      prvP.when('A', 'a-util').execute(function(A, utils) {
+        checkEligibilityAndRunActions(A, utils, registrationConfig, REGISTER_STRING);
+        // This is is our last call to checkEligibilityAndRunActions, so we can now commit page tags
+        // We should only call this function once per page load, and at the same point in time regardless
+        // of whether we're registering or unregistering - to prevent differences in latency metrics b/w populations
+        commitPageTags();
+      });
+    });
+  } else {
+    //if we were going to register, or unregister, tag appropriately
+    if (registrationConfig) {
+      if (registrationConfig.browser) {
+        tagPage(getMetricsPrefix(REGISTER_STRING, BROWSER_STRING) + UNSUPPORTED_STRING);
+      }
+      if (registrationConfig.prodMshop) {
+        tagPage(getMetricsPrefix(REGISTER_STRING, PROD_MSHOP_STRING) + UNSUPPORTED_STRING);
+      }
+      if (registrationConfig.betaMshop) {
+        tagPage(getMetricsPrefix(REGISTER_STRING, BETA_MSHOP_STRING) + UNSUPPORTED_STRING);
+      }
+    }
+    if (unregistrationConfig) {
+      if (unregistrationConfig.browser) {
+        tagPage(getMetricsPrefix(UNREGISTER_STRING, BROWSER_STRING) + UNSUPPORTED_STRING);
+      }
+      if (unregistrationConfig.prodMshop) {
+        tagPage(getMetricsPrefix(UNREGISTER_STRING, PROD_MSHOP_STRING) + UNSUPPORTED_STRING);
+      }
+      if (unregistrationConfig.betaMshop) {
+        tagPage(getMetricsPrefix(UNREGISTER_STRING, BETA_MSHOP_STRING) + UNSUPPORTED_STRING);
+      }
+    }
+
+    // in this case, where the browser does not support service workers, we can log out page tags now
+    // there is no need to wait for the page to load (like we do for the supported case), since we don't compare
+    // these two populations. note that if a session is unsupported for another reason (e.g a blacklisted UA) that will
+    // be logged later in the page load
+    commitPageTags();
+  }
+
+}
+
+// Take required util modules, action config (see invokeServiceWorkerAction documentation for details), and a string action name (used for metrics)
+// If we are eligible to run one of the configured actions, execute it and tag appropriate metrics
+function checkEligibilityAndRunActions(A, utils, actionConfig, actionName) {
+  // Early exit if we have no config
+  if (!actionConfig) {
+    return;
+  }
+
+  // Import context detection functions used below
+  /* Importing serviceworker/context_detection/_sw_context_detection.js */
+// This file expects that A and utils have been defined (as "A" and "a-util", respectively)
+
+// Check the following conditions:
+// 1. check for Chrome -- for now we are only testing this functionality in the browser
+// that has proven to be most performant (we will roll out others in additional phases)
+// 2. check we are not in app, even if service workers are supported in the webview
+// 3. check we are not in a modern chrome webview (as defined here: https://developer.chrome.com/multidevice/user-agent)
+//    this is to catch issues like this: https://issues.amazon.com/issues/AUI-19553
+function isSupportedBrowserClient() {
+  return (testUserAgent(/Chrome/i) && !testUserAgent(/Edge/i) && !testUserAgent(/OPR/i)) && !A.capabilities.isAmazonApp &&
+    !testUserAgent(new RegExp(SAFE_BACKSLASH + "bwv" + SAFE_BACKSLASH + "b"));
+}
+
+// Import context detection functions, which will bring in the right variants that only define the mshop functions
+// as non-no-ops if we are currently in any treatment of the mshop weblab
+/* Importing serviceworker/context_detection/_sw_context_detection_mshop.js */
+// Define mshop context detection functions as no-ops that return undefined
+function isSupportedProdMshopClient(){}
+function isSupportedBetaMshopClient(){}
+/* Done importing serviceworker/context_detection/_sw_context_detection_mshop.js */
+
+/* Done importing serviceworker/context_detection/_sw_context_detection.js */
+
+  var isSupportedBrowser = isSupportedBrowserClient();
+  var isSupportedProdMshop = isSupportedProdMshopClient();
+  var isSupportedBetaMshop = isSupportedBetaMshopClient();
+
+  // Create metrics constants
+  var browserMetricsPrefix = getMetricsPrefix(actionName, BROWSER_STRING);
+  var prodMshopMetricsPrefix =  getMetricsPrefix(actionName, PROD_MSHOP_STRING);
+  var betaMshopMetricsPrefix = getMetricsPrefix(actionName, BETA_MSHOP_STRING);
+
+  // Split out checks by platform - so that we can avoid doing unnecessary work when we're on a non-app platform
+  // If we have a configured action and we're supported, take that action (and tag appropriately)
+  // Browser Case
+  if (!A.capabilities.isAmazonApp) {
+    if (actionConfig.browser && isSupportedBrowser) {
+      tagPage(browserMetricsPrefix + SUPPORTED_STRING);
+      actionConfig.browser.action(browserMetricsPrefix, actionName);
+    }
+  // Mshop Case
+  } else {
+    if (actionConfig.prodMshop && isSupportedProdMshop) {
+      tagPage(prodMshopMetricsPrefix + SUPPORTED_STRING);
+      actionConfig.prodMshop.action(prodMshopMetricsPrefix, actionName);
+    } else if (actionConfig.betaMshop && isSupportedBetaMshop) {
+      tagPage(betaMshopMetricsPrefix + SUPPORTED_STRING);
+      actionConfig.betaMshop.action(betaMshopMetricsPrefix, actionName);
+    }
+  }
+
+  // Now tag which configs the current session is not supported for
+  if (!isSupportedBrowser && actionConfig.browser) {
+    tagPage(browserMetricsPrefix + UNSUPPORTED_STRING);
+  }
+  if (!isSupportedProdMshop && actionConfig.prodMshop) {
+    tagPage(prodMshopMetricsPrefix + UNSUPPORTED_STRING);
+  }
+  if (!isSupportedBetaMshop && actionConfig.betaMshop) {
+    tagPage(betaMshopMetricsPrefix + UNSUPPORTED_STRING);
+  }
+}
+/* Done importing serviceworker/_sw_common.js */
+
+
+// Execution config will be filled out depending on which variants of the below three files are imported
+var executionConfig = {
+  reg: {},
+  unreg: {}
+};
+
+/* Importing serviceworker/_sw_browser_action.js */
+// This file intentionally left blank
+// Nothing to see here, move along
+/* Done importing serviceworker/_sw_browser_action.js */
+
+/* Importing serviceworker/_sw_prod_mshop_action.js */
+// This file intentionally left blank
+// Pay no attention to the man behind the curtain
+/* Done importing serviceworker/_sw_prod_mshop_action.js */
+
+/* Importing serviceworker/_sw_beta_mshop_action.js */
+// This file intentionally left blank
+// What if... there is no spoon.
+/* Done importing serviceworker/_sw_beta_mshop_action.js */
+
+
+invokeServiceWorkerAction(executionConfig);
+/* Done importing serviceworker/_sw.js */
+
+
+// Event off fix
+winP.declare('a-fix-event-off', false);
+
+// Log how long it takes for PageJS to finish. This should be at the very end of p.js
+ueCount("pagejs:pkgExecTime", performanceTimestamp() - packageStartTime);
+/////////////////////////
+// END FILE p.js
+/////////////////////////
+
+}(window, document, Date)); // END ASSET AmazonUIPageJS-3.0.342278.0
+////////////////////////////////////////////
+
+/* ******** */

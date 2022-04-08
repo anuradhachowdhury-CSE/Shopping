@@ -1,0 +1,117 @@
+header{
+    margin-bottom: 100px;
+}
+.container-fluid>.amaz{
+    padding-left: 20px;
+    font-size: 40px;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+.collapse>ul>li>a,.xtra{
+    font-size: 20px;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif
+}
+
+.large-font{
+    margin-top: 100px;
+    padding-left: 100px;
+    font-size: 40px;
+    font-weight: bolder;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+.small-font{
+    padding-left: 100px;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+.cards{
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    margin:20px;
+    padding: 20px;
+}
+.card{
+    margin-top: 20px;
+}
+img{
+    width: 100%;
+    height: 700px;
+}
+.one{
+    padding-left: 150px;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    font-size: bolder;
+}
+.case-studies{
+    margin-top: 20px;
+    display:flex;
+    justify-content: center;
+    
+}
+.font-centre{
+    width:500px;
+  height:300px
+  
+}
+.card-container{
+    display: flex;
+    
+}
+.card-other{
+    margin:30px;
+    /* border-radius: 40px; */
+  
+}
+.card-other img{
+    border-radius: 20px;
+    width:100%;
+    height:200px;
+}
+.card-container>.radius{
+    border-radius: 20px;
+}
+
+.half-width{
+   margin:50px;
+   padding: 60px;
+   display: flex;
+    background-color: aquamarine;
+}
+.half-width img{
+    padding-left: 150px;
+    width:100%;
+    height: 300px;
+}
+.half-width>h2{
+    padding-top: 100px;
+    padding-left: 100px;
+}
+.get-start{
+  text-align: center;
+  
+}
+.list{
+    margin-top:100px;
+    display: grid;
+    grid-gap: 10px;
+    grid-template-columns: repeat(4,1fr);
+    background-color: black;
+    color: white;
+    padding: 20px;
+}
+span{
+    padding: 10px;
+    white-space: nowrap;
+    float: right;
+    
+}
+.card-body>.fa-icon{
+        width:30%;
+        height:50px
+}
+.Multi-fullfillment{
+   height:300px;
+    background-image: linear-gradient(aliceblue,gray);
+}
+.Start{
+    margin-left: 100px;
+}
