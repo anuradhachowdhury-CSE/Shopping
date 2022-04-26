@@ -93,20 +93,23 @@ img{
   text-align: center;
   
 }
-.list{
-    margin-top:100px;
-    display: grid;
-    grid-gap: 10px;
-    grid-template-columns: repeat(4,1fr);
-    background-color: black;
-    color: white;
-    padding: 20px;
-}
+
+    .list{
+        margin-top:100px;
+        display: grid;
+        grid-gap: 2px; 
+        grid-template-columns: repeat(4,1fr);
+        background-color: black;
+        color: white;
+        padding: 2%;
+    }
+
+
 span{
     padding-top: 100px;
     /* padding-left: 200px; */
-    white-space: nowrap;
-}
+    /* white-space: nowrap;
+} */
 
 .card-body>.fa-icon{
         width:30%;
