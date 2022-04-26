@@ -18,6 +18,7 @@ header{
     font-size: 40px;
     font-weight: bolder;
     font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    
 }
 .small-font{
     padding-left: 100px;
@@ -108,8 +109,8 @@ img{
 span{
     padding-top: 100px;
     /* padding-left: 200px; */
-    /* white-space: nowrap;
-} */
+     /* white-space: nowrap; */
+} 
 
 .card-body>.fa-icon{
         width:30%;
